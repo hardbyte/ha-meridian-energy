@@ -1,38 +1,68 @@
-![Company logo](https://github.com/home-assistant/brands/blob/87e2d7c60931ee822776d2204244ef3eff4d22cf/custom_integrations/meridian_energy/logo.png?raw=true)
+# Meridian Energy for Home Assistant
 
-# Meridian Energy integration for Home Assistant
-![image](https://github.com/codyc1515/ha-meridian-energy/assets/50791984/26e62938-ea81-4e7f-86a2-c5adf7da5d1f)
+Unofficial integration that pulls your [Meridian Energy](https://www.meridianenergy.co.nz/)
+usage into Home Assistant's Energy dashboard.
 
-## Compatible plans
+Not affiliated with or endorsed by Meridian Energy.
 
-* Consumer EV Plan (Day & Night rates, with Solar)
+## What it does
 
-Possibly others - let me know if you find one that works.
+- Email one-time-code login (current MyMeridian auth — no password)
+- Half-hourly import + solar/export generation
+- Per-interval consumption cost (NZD, excl. standing charge)
+- Publishes **external statistics** for the Energy dashboard
+- State sensors for lookback-window totals (import / export / cost)
 
-## Getting started
-You will need to have an existing active consumer Meridian Energy account.
+Built on [`meridian-energy`](https://github.com/hardbyte/python-meridian-energy).
 
-## Installation
-Once installed, simply set-up from the `Devices and services` area. The first field is email and the next field is password for your account.
+## Install
 
-### HACS (recommended)
-1. [Install HACS](https://hacs.xyz/docs/setup/download), if you did not already
-2. [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=codyc1515&repository=ha-meridian-energy&category=integration)
-3. Install the Meridian Energy integration
-4. Restart Home Assistant
+### HACS (custom repository)
 
-### Manually
-Copy all files in the custom_components/meridian-energy folder to your Home Assistant folder *config/custom_components/meridian-energy*.
+1. HACS → Integrations → ⋮ → Custom repositories
+2. URL: `https://github.com/hardbyte/ha-meridian-energy`, category: Integration
+3. Download **Meridian Energy**, restart Home Assistant
+4. Settings → Devices & services → Add Integration → Meridian Energy
 
-## Known issues
+### Manual
 
-* Labels don't show when using the config_flow
+Copy `custom_components/meridian_energy` into your HA `config/custom_components/`
+directory and restart.
 
-## Future enhancements
-Your support is welcomed.
+## Setup
 
-* Support for multiple ICPs (haven't tried a login with multiple ICPs)
-* Support for energy rates (currently need to be set-up manually and is static thereafter)
+1. Enter the email on your Meridian account
+2. Enter the 6-digit code Meridian emails you
+3. On the Energy dashboard, add:
+   - **Grid consumption** → `meridian_energy:<account>_import`
+   - **Return to grid** → `meridian_energy:<account>_export` (if you have solar)
+   - **Grid cost** → `meridian_energy:<account>_cost` (optional; already incl. GST)
 
-## Acknowledgements
-This integration is not supported / endorsed by, nor affiliated with, Meridian Energy.
+Statistics appear under **Developer tools → Statistics** sourced from
+`meridian_energy`.
+
+## Notes
+
+- Polls every 3 hours; each poll re-publishes the last 10 days (recorder de-dupes)
+- Estimated half-hours are included (tagged in the API as `ESTIMATE`)
+- Standing daily charge is **not** folded into the cost statistic
+- Multi-account pickers are not implemented yet (first account is used)
+- API shapes were reverse-engineered from Meridian's public web app; they can change
+
+## Development
+
+```bash
+# library
+cd ../python-meridian-energy && uv sync --group dev && uv run pytest
+
+# this repo
+ruff check custom_components
+```
+
+For local HA against an editable library, install `meridian-energy` into the
+HA container/venv pointing at your checkout before starting the integration.
+
+## Licence
+
+MIT (inherited from the original codyc1515/ha-meridian-energy fork). The
+companion Python library is Apache-2.0.

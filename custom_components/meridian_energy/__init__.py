@@ -6,35 +6,58 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.httpx_client import get_async_client
+from meridian_energy import (
+    MeridianEnergyApi,
+    MeridianEnergyAuth,
+    ReauthenticationRequiredError,
+    TokenSet,
+)
 
-from .api import MeridianEnergyApi, MeridianEnergyAuth, MeridianTokenSet
-from .const import CONF_TOKENS, DOMAIN, PLATFORMS
+from .const import CONF_ACCOUNT_NUMBER, CONF_TOKENS, PLATFORMS
+from .coordinator import MeridianCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+MeridianConfigEntry = ConfigEntry[MeridianCoordinator]
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+
+async def async_setup_entry(hass: HomeAssistant, entry: MeridianConfigEntry) -> bool:
     """Set up Meridian Energy from a config entry."""
 
-    async def on_token_update(tokens: MeridianTokenSet) -> None:
+    async def on_token_update(tokens: TokenSet) -> None:
+        """Persist refreshed Firebase tokens onto the config entry."""
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_TOKENS: tokens.to_dict()}
         )
 
-    tokens = MeridianTokenSet.from_dict(entry.data[CONF_TOKENS])
+    try:
+        tokens = TokenSet.from_dict(entry.data[CONF_TOKENS])
+    except (KeyError, TypeError, ValueError) as err:
+        raise ConfigEntryAuthFailed("Stored Meridian tokens are invalid") from err
+
     auth = MeridianEnergyAuth(tokens=tokens, on_token_update=on_token_update)
-    api = MeridianEnergyApi(auth, get_async_client(hass))
+    api = MeridianEnergyApi(
+        auth,
+        get_async_client(hass),
+        owns_client=False,
+    )
+    account_number = entry.data[CONF_ACCOUNT_NUMBER]
+    coordinator = MeridianCoordinator(hass, api, account_number, entry)
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = api
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except ConfigEntryAuthFailed:
+        raise
+    except ReauthenticationRequiredError as err:
+        raise ConfigEntryAuthFailed("Meridian session expired") from err
 
+    entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: MeridianConfigEntry) -> bool:
     """Unload a config entry."""
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
-    return unloaded
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

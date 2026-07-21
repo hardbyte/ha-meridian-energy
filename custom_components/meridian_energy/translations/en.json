@@ -14,6 +14,10 @@
         "data": {
           "otp": "Login code"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Meridian Energy",
+        "description": "Your Meridian session expired. We'll email a new login code to {email}."
       }
     },
     "error": {
@@ -22,7 +26,8 @@
     },
     "abort": {
       "already_configured": "This account is already configured.",
-      "no_accounts": "No Meridian accounts were found for this login."
+      "no_accounts": "No Meridian accounts were found for this login.",
+      "reauth_successful": "Re-authentication successful."
     }
   }
 }

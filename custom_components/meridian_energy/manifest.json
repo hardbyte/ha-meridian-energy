@@ -1,17 +1,14 @@
 {
-	"domain": "meridian_energy",
-	"name": "Meridian Energy",
-	"codeowners": [
-		"@codyc1515",
-		"@hardbyte"
-	],
-	"config_flow": true,
-	"dependencies": [
-		"recorder"
-	],
-	"documentation": "https://github.com/hardbyte/ha-meridian-energy",
-	"iot_class": "cloud_polling",
-	"issue_tracker": "https://github.com/hardbyte/ha-meridian-energy/issues",
-	"requirements": [],
-	"version": "2.0.0"
+  "domain": "meridian_energy",
+  "name": "Meridian Energy",
+  "codeowners": ["@hardbyte"],
+  "config_flow": true,
+  "dependencies": ["recorder"],
+  "documentation": "https://github.com/hardbyte/ha-meridian-energy",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/hardbyte/ha-meridian-energy/issues",
+  "requirements": [
+    "meridian-energy @ git+https://github.com/hardbyte/python-meridian-energy.git@main"
+  ],
+  "version": "2.0.0"
 }
