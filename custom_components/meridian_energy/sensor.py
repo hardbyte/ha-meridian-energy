@@ -87,7 +87,13 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
     export_stats = _stats("export")
     cost_stats = _stats("cost")
 
-    def _meta(name: str, statistic_id: str, unit: str) -> StatisticMetaData:
+    def _meta(
+        name: str,
+        statistic_id: str,
+        unit: str,
+        *,
+        unit_class: str | None,
+    ) -> StatisticMetaData:
         kwargs: dict = {
             "has_mean": False,
             "has_sum": True,
@@ -95,6 +101,7 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
             "source": DOMAIN,
             "statistic_id": statistic_id,
             "unit_of_measurement": unit,
+            "unit_class": unit_class,
         }
         if StatisticMeanType is not None:
             kwargs["mean_type"] = StatisticMeanType.NONE
@@ -107,6 +114,7 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
                 f"{SENSOR_NAME} (Import)",
                 f"{DOMAIN}:{slug}_import",
                 UnitOfEnergy.KILO_WATT_HOUR,
+                unit_class="energy",
             ),
             import_stats,
         )
@@ -117,13 +125,19 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
                 f"{SENSOR_NAME} (Export)",
                 f"{DOMAIN}:{slug}_export",
                 UnitOfEnergy.KILO_WATT_HOUR,
+                unit_class="energy",
             ),
             export_stats,
         )
     if cost_stats:
         async_add_external_statistics(
             hass,
-            _meta(f"{SENSOR_NAME} (Cost)", f"{DOMAIN}:{slug}_cost", "NZD"),
+            _meta(
+                f"{SENSOR_NAME} (Cost)",
+                f"{DOMAIN}:{slug}_cost",
+                "NZD",
+                unit_class=None,
+            ),
             cost_stats,
         )
 

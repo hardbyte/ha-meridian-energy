@@ -1,5 +1,7 @@
 # Meridian Energy for Home Assistant
 
+![icon](custom_components/meridian_energy/icon.png)
+
 Unofficial Home Assistant integration for [Meridian Energy](https://www.meridianenergy.co.nz/) (NZ).
 
 Pulls half-hourly usage (and optional solar export) into the **Energy dashboard** via Meridian's current MyMeridian API (email one-time code + GraphQL).
