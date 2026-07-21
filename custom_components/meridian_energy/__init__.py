@@ -37,10 +37,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: MeridianConfigEntry) -> 
     except (KeyError, TypeError, ValueError) as err:
         raise ConfigEntryAuthFailed("Stored Meridian tokens are invalid") from err
 
-    auth = MeridianEnergyAuth(tokens=tokens, on_token_update=on_token_update)
+    httpx_client = get_async_client(hass)
+    auth = MeridianEnergyAuth(
+        tokens=tokens,
+        on_token_update=on_token_update,
+        httpx_client=httpx_client,
+    )
     api = MeridianEnergyApi(
         auth,
-        get_async_client(hass),
+        httpx_client,
         owns_client=False,
     )
     account_number = entry.data[CONF_ACCOUNT_NUMBER]

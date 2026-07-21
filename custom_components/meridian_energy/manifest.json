@@ -12,7 +12,7 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/hardbyte/ha-meridian-energy/issues",
   "requirements": [
-    "meridian-energy @ git+https://github.com/hardbyte/python-meridian-energy.git@40ec1e2435d069a0a7af842da38adf4ca3901153"
+    "meridian-energy @ git+https://github.com/hardbyte/python-meridian-energy.git@431c63921275135c6e9cdb0dd1586057bf190f47"
   ],
   "version": "2.0.0"
 }
