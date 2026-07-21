@@ -44,9 +44,9 @@ def _statistic_slug(account_number: str) -> str:
     lowercase ``[a-z0-9_]+`` only — Meridian account numbers like ``A-1B9AC44D``
     need normalising.
     """
-    slug = "".join(
-        ch.lower() if ch.isalnum() else "_" for ch in account_number
-    ).strip("_")
+    slug = "".join(ch.lower() if ch.isalnum() else "_" for ch in account_number).strip(
+        "_"
+    )
     while "__" in slug:
         slug = slug.replace("__", "_")
     return slug or "account"
@@ -90,6 +90,7 @@ async def async_setup_entry(
             MeridianImportSensor(coordinator, account_number),
             MeridianExportSensor(coordinator, account_number),
             MeridianCostSensor(coordinator, account_number),
+            MeridianExportCreditSensor(coordinator, account_number),
         ]
     )
 
@@ -119,12 +120,31 @@ def _publish_statistics(
     updated_cursors: dict[str, Any] = {}
 
     series = (
-        ("import", f"{DOMAIN}:{slug}_import", UnitOfEnergy.KILO_WATT_HOUR, "energy"),
-        ("export", f"{DOMAIN}:{slug}_export", UnitOfEnergy.KILO_WATT_HOUR, "energy"),
-        ("cost", f"{DOMAIN}:{slug}_cost", "NZD", None),
+        (
+            "import",
+            f"{DOMAIN}:{slug}_import",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            "energy",
+            "Import",
+        ),
+        (
+            "export",
+            f"{DOMAIN}:{slug}_export",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            "energy",
+            "Export",
+        ),
+        ("cost", f"{DOMAIN}:{slug}_cost", "NZD", None, "Cost"),
+        (
+            "export_credit",
+            f"{DOMAIN}:{slug}_export_credit",
+            "NZD",
+            None,
+            "Export credit",
+        ),
     )
 
-    for kind, statistic_id, unit, unit_class in series:
+    for kind, statistic_id, unit, unit_class, label in series:
         points, cursor = build_incremental_statistics(
             summary.hourly,
             kind=kind,  # type: ignore[arg-type]
@@ -139,7 +159,7 @@ def _publish_statistics(
         async_add_external_statistics(
             hass,
             _statistic_metadata(
-                name=f"{SENSOR_NAME} ({kind.title()})",
+                name=f"{SENSOR_NAME} ({label})",
                 statistic_id=statistic_id,
                 unit=unit,
                 unit_class=unit_class,
@@ -257,3 +277,23 @@ class MeridianCostSensor(MeridianBaseSensor):
         """Return consumption cost in NZD over the lookback window."""
         summary = self._summary
         return None if summary is None else round(summary.cost_nzd, 2)
+
+
+class MeridianExportCreditSensor(MeridianBaseSensor):
+    """Solar feed-in credit over the lookback window."""
+
+    _attr_name = "Export credit"
+    _attr_native_unit_of_measurement = "NZD"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_icon = "mdi:cash-plus"
+
+    def __init__(self, coordinator: MeridianCoordinator, account_number: str) -> None:
+        """Initialise the export credit total sensor."""
+        super().__init__(coordinator, account_number)
+        self._attr_unique_id = f"{DOMAIN}_{account_number}_export_credit"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return feed-in credit in NZD over the lookback window."""
+        summary = self._summary
+        return None if summary is None else round(summary.export_credit_nzd, 2)

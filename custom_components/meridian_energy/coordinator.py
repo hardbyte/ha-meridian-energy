@@ -15,7 +15,11 @@ from meridian_energy import (
     ReauthenticationRequiredError,
     UsageSummary,
 )
-from meridian_energy.errors import MeridianApiError, MeridianAuthError, MeridianEnergyError
+from meridian_energy.errors import (
+    MeridianApiError,
+    MeridianAuthError,
+    MeridianEnergyError,
+)
 
 from .const import DOMAIN, LOOKBACK_DAYS, UPDATE_INTERVAL_HOURS
 

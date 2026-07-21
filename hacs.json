@@ -1,8 +1,10 @@
 {
   "name": "Meridian Energy",
+  "homeassistant": "2024.11.0",
   "country": [
     "NZ"
   ],
-  "hide_default_branch": false,
-  "render_readme": true
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "meridian_energy.zip"
 }

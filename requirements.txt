@@ -1,4 +1,4 @@
 colorlog==6.8.0
 homeassistant>=2024.11.0
 ruff>=0.8.0
-meridian-energy>=0.1.4
+meridian-energy>=0.1.5

@@ -1,6 +1,6 @@
 # Meridian Energy for Home Assistant
 
-![icon](custom_components/meridian_energy/icon.png)
+![icon](custom_components/meridian_energy/brand/icon.png)
 
 Unofficial Home Assistant integration for [Meridian Energy](https://www.meridianenergy.co.nz/) (NZ).
 
@@ -36,6 +36,7 @@ Not affiliated with or endorsed by Meridian Energy.
 | Grid consumption | `meridian_energy:<account>_import` |
 | Return to grid | `meridian_energy:<account>_export` |
 | Grid cost | `meridian_energy:<account>_cost` |
+| Return compensation | `meridian_energy:<account>_export_credit` |
 
 `<account>` is the Meridian account number lowercased with non-alphanumerics
 turned into underscores (e.g. `A-1B9AC44D` → `a_1b9ac44d`). Find the exact IDs
@@ -48,7 +49,7 @@ under **Developer tools → Statistics** (source `meridian_energy`).
   statistic cursors (already-published hours are not rewritten)
 - Estimated half-hours (`ESTIMATE`) are included
 - Standing daily charge is **not** included in the cost statistic
-- First account on the login is used (multi-account picker not implemented yet)
+- If several accounts are on the login, a picker step lets you choose one
 
 ## Development
 
