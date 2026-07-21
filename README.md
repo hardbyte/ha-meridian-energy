@@ -1,68 +1,74 @@
 # Meridian Energy for Home Assistant
 
-Unofficial integration that pulls your [Meridian Energy](https://www.meridianenergy.co.nz/)
-usage into Home Assistant's Energy dashboard.
+Unofficial Home Assistant integration for [Meridian Energy](https://www.meridianenergy.co.nz/) (NZ).
+
+Pulls half-hourly usage (and optional solar export) into the **Energy dashboard** via Meridian's current MyMeridian API (email one-time code + GraphQL).
 
 Not affiliated with or endorsed by Meridian Energy.
 
-## What it does
+## Features
 
-- Email one-time-code login (current MyMeridian auth — no password)
-- Half-hourly import + solar/export generation
-- Per-interval consumption cost (NZD, excl. standing charge)
-- Publishes **external statistics** for the Energy dashboard
-- State sensors for lookback-window totals (import / export / cost)
+- Email OTP login (no password — matches the live MyMeridian app)
+- Transparent Firebase token refresh
+- Grid import + generation/export statistics
+- Per-interval consumption cost in NZD (ex standing charge)
+- Sensors for lookback-window totals
+- Built on [`meridian-energy`](https://github.com/hardbyte/python-meridian-energy)
 
-Built on [`meridian-energy`](https://github.com/hardbyte/python-meridian-energy).
+## Install (HACS)
 
-## Install
-
-### HACS (custom repository)
-
-1. HACS → Integrations → ⋮ → Custom repositories
-2. URL: `https://github.com/hardbyte/ha-meridian-energy`, category: Integration
-3. Download **Meridian Energy**, restart Home Assistant
-4. Settings → Devices & services → Add Integration → Meridian Energy
-
-### Manual
-
-Copy `custom_components/meridian_energy` into your HA `config/custom_components/`
-directory and restart.
+1. HACS → Integrations → ⋮ → **Custom repositories**
+2. Repository: `https://github.com/hardbyte/ha-meridian-energy`
+3. Category: **Integration**
+4. Download **Meridian Energy**, then **restart Home Assistant**
+5. Settings → Devices & services → **Add Integration** → Meridian Energy
 
 ## Setup
 
-1. Enter the email on your Meridian account
-2. Enter the 6-digit code Meridian emails you
-3. On the Energy dashboard, add:
-   - **Grid consumption** → `meridian_energy:<account>_import`
-   - **Return to grid** → `meridian_energy:<account>_export` (if you have solar)
-   - **Grid cost** → `meridian_energy:<account>_cost` (optional; already incl. GST)
+1. Enter the email on your Meridian account  
+2. Enter the 6-digit code Meridian emails you  
+3. On the Energy dashboard, add external statistics:
 
-Statistics appear under **Developer tools → Statistics** sourced from
-`meridian_energy`.
+| Energy dashboard field | Statistic ID |
+|------------------------|--------------|
+| Grid consumption | `meridian_energy:<account>_import` |
+| Return to grid | `meridian_energy:<account>_export` |
+| Grid cost | `meridian_energy:<account>_cost` |
 
-## Notes
+`<account>` is your Meridian account number (shown on the device title after setup).
+Find the exact IDs under **Developer tools → Statistics** (source `meridian_energy`).
 
-- Polls every 3 hours; each poll re-publishes the last 10 days (recorder de-dupes)
-- Estimated half-hours are included (tagged in the API as `ESTIMATE`)
-- Standing daily charge is **not** folded into the cost statistic
-- Multi-account pickers are not implemented yet (first account is used)
-- API shapes were reverse-engineered from Meridian's public web app; they can change
+## Behaviour
+
+- Polls about every **3 hours**
+- Each poll re-publishes the last **10 days**; the recorder de-dupes by statistic id + start
+- Estimated half-hours (`ESTIMATE`) are included
+- Standing daily charge is **not** included in the cost statistic
+- First account on the login is used (multi-account picker not implemented yet)
 
 ## Development
 
 ```bash
-# library
-cd ../python-meridian-energy && uv sync --group dev && uv run pytest
+# companion library
+cd ../python-meridian-energy
+uv sync --group dev
+uv run pytest
 
-# this repo
-ruff check custom_components
+# this integration
+scripts/setup
+scripts/develop   # local HA on :8123 with config/
+scripts/lint
 ```
 
-For local HA against an editable library, install `meridian-energy` into the
-HA container/venv pointing at your checkout before starting the integration.
+For a live HA instance, HACS installs from this repo; the integration's
+`manifest.json` pulls `meridian-energy` from GitHub until it is on PyPI.
 
-## Licence
+## History / licence
 
-MIT (inherited from the original codyc1515/ha-meridian-energy fork). The
-companion Python library is Apache-2.0.
+Originally forked from [codyc1515/ha-meridian-energy](https://github.com/codyc1515/ha-meridian-energy)
+(CSV scrape of the retired `secure.meridianenergy.co.nz` portal). That upstream is
+archived. This tree is a full rewrite against the current OTP + GraphQL stack and
+is maintained independently.
+
+MIT — see [LICENSE](LICENSE). Copyright retained for Cody C's original work;
+subsequent rewrite by Brian Thorne.
