@@ -22,7 +22,8 @@
     },
     "error": {
       "invalid_email": "Could not send a login code to that email address.",
-      "invalid_otp": "That code was incorrect or has expired."
+      "invalid_otp": "That code was incorrect or has expired.",
+      "unknown": "Unexpected error talking to Meridian. Check the logs and try again."
     },
     "abort": {
       "already_configured": "This account is already configured.",

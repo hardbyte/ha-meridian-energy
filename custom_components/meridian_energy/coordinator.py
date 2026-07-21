@@ -9,12 +9,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from httpx import HTTPError
 from meridian_energy import (
     MeridianEnergyApi,
     ReauthenticationRequiredError,
     UsageSummary,
 )
-from meridian_energy.errors import MeridianApiError, MeridianAuthError
+from meridian_energy.errors import MeridianApiError, MeridianAuthError, MeridianEnergyError
 
 from .const import DOMAIN, LOOKBACK_DAYS, UPDATE_INTERVAL_HOURS
 
@@ -54,5 +55,5 @@ class MeridianCoordinator(DataUpdateCoordinator[UsageSummary]):
             raise ConfigEntryAuthFailed("Meridian session expired") from err
         except MeridianAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
-        except MeridianApiError as err:
+        except (MeridianApiError, MeridianEnergyError, HTTPError, TimeoutError) as err:
             raise UpdateFailed(str(err)) from err

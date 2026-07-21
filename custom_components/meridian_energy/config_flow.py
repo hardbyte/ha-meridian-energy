@@ -10,7 +10,12 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL
 from homeassistant.helpers.httpx_client import get_async_client
-from meridian_energy import MeridianAuthError, MeridianEnergyApi, MeridianEnergyAuth
+from meridian_energy import (
+    MeridianAuthError,
+    MeridianEnergyApi,
+    MeridianEnergyAuth,
+    MeridianEnergyError,
+)
 
 from .const import CONF_ACCOUNT_NUMBER, CONF_TOKENS, DOMAIN
 
@@ -75,6 +80,9 @@ class MeridianEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except MeridianAuthError:
                 _LOGGER.debug("OTP verification failed", exc_info=True)
                 errors["base"] = "invalid_otp"
+            except MeridianEnergyError:
+                _LOGGER.exception("Meridian API error during setup")
+                errors["base"] = "unknown"
             else:
                 if not accounts:
                     return self.async_abort(reason="no_accounts")
