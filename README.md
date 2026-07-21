@@ -63,8 +63,8 @@ scripts/develop   # local HA on :8123 with config/
 scripts/lint
 ```
 
-For a live HA instance, HACS installs from this repo; the integration's
-`manifest.json` pulls `meridian-energy` from GitHub until it is on PyPI.
+For a live HA instance, HACS installs from this repo; the integration depends
+on [`meridian-energy`](https://pypi.org/project/meridian-energy/) from PyPI.
 
 ## History / licence
 
