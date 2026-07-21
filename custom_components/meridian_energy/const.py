@@ -11,6 +11,7 @@ CONF_TOKENS = "tokens"
 CONF_ACCOUNT_NUMBER = "account_number"
 CONF_EMAIL = "email"
 
-# How far back each poll re-publishes. HA recorder de-dupes by statistic id + start.
-LOOKBACK_DAYS = 10
+# How far back each poll fetches. New hours are appended via stat cursors;
+# already-published hours are skipped. Pagination handles >1500 rows.
+LOOKBACK_DAYS = 30
 UPDATE_INTERVAL_HOURS = 3
