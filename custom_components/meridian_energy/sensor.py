@@ -1,233 +1,161 @@
-"""Meridian Energy sensors."""
+"""Meridian Energy usage/cost sensor.
 
+Pushes interval usage (and cost, when Meridian includes it) into HA's
+recorder as external statistics, for use on the Energy dashboard.
+
+NOTE: the `source`/`readingDirection` values checked below (IMPORT/EXPORT,
+GENERATION) are inferred from the GraphQL schema shape, not from a captured
+live response -- confirm against real data on first run and adjust the
+classification in _direction_of() if Meridian uses different enum values.
+"""
+
+from __future__ import annotations
+
+import logging
 from datetime import datetime, timedelta
 
-import csv
-from io import StringIO
-from pytz import timezone
-import logging
-import voluptuous as vol
-
-import homeassistant.helpers.config_validation as cv
-from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
-from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.components.sensor import SensorEntity
-
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
+from homeassistant.components.recorder.statistics import async_add_external_statistics
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import UnitOfEnergy
-from homeassistant.components.recorder.statistics import (
-    async_add_external_statistics,
-)
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.config_entries import ConfigEntry
 
 from .api import MeridianEnergyApi
-
-from .const import DOMAIN, SENSOR_NAME
-
-NAME = DOMAIN
-ISSUEURL = "https://github.com/codyc1515/ha-meridian-energy/issues"
-
-STARTUP = f"""
--------------------------------------------------------------------
-{NAME}
-This is a custom component
-If you have any issues with this you need to open an issue here:
-{ISSUEURL}
--------------------------------------------------------------------
-"""
+from .const import CONF_ACCOUNT_NUMBER, DOMAIN, SENSOR_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {vol.Required(CONF_EMAIL): cv.string, vol.Required(CONF_PASSWORD): cv.string}
-)
-
 SCAN_INTERVAL = timedelta(hours=3)
+
+# How far back to pull on every poll. Meridian's own app fetches a rolling
+# window rather than incrementally, so we do the same and let the recorder
+# de-dupe by statistic id + start time.
+LOOKBACK = timedelta(days=10)
+
+_EXPORT_DIRECTIONS = {"EXPORT", "GENERATION"}
+
+
+def _direction_of(reading: dict) -> str:
+    """Classify a reading as 'import' or 'export' consumption."""
+    meta = reading.get("metaData") or {}
+    filters = meta.get("utilityFilters") or {}
+    direction = (filters.get("readingDirection") or "IMPORT").upper()
+    return "export" if direction in _EXPORT_DIRECTIONS else "import"
+
+
+def _reading_cost(reading: dict) -> float | None:
+    for stat in (reading.get("metaData") or {}).get("statistics") or []:
+        cost = stat.get("costInclTax") or {}
+        amount = cost.get("estimatedAmount")
+        if amount is not None:
+            return float(amount)
+    return None
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: config_entries.ConfigEntry,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info=None,
-):
-    """Asynchronously set-up the entry."""
-    email = entry.data.get(CONF_EMAIL)
-    password = entry.data.get(CONF_PASSWORD)
-
-    api = MeridianEnergyApi(email, password)
-
-    _LOGGER.debug("Setting up sensor(s)...")
-
-    sensors = []
-    sensors.append(MeridianEnergyUsageSensor(SENSOR_NAME, api))
-    async_add_entities(sensors, True)
+) -> None:
+    """Set up the Meridian Energy sensor."""
+    api: MeridianEnergyApi = hass.data[DOMAIN][entry.entry_id]
+    account_number = entry.data[CONF_ACCOUNT_NUMBER]
+    async_add_entities([MeridianEnergyUsageSensor(account_number, api)], True)
 
 
 class MeridianEnergyUsageSensor(SensorEntity):
-    """Define Meridian Energy Usage sensor."""
+    """Pulls Meridian interval usage/cost into recorder external statistics."""
 
-    def __init__(self, name, api):
-        """Intialise Meridian Energy Usage sensor."""
-        self._name = name
-        self._icon = "mdi:meter-electric"
-        self._state = 0
-        self._unique_id = DOMAIN
-        self._state_attributes = {}
+    _attr_icon = "mdi:meter-electric"
+    _attr_name = SENSOR_NAME
+
+    def __init__(self, account_number: str, api: MeridianEnergyApi) -> None:
+        """Initialise the sensor for a given Meridian account number."""
+        self._account_number = account_number
         self._api = api
+        self._attr_unique_id = f"{DOMAIN}_{account_number}"
+        self._attr_native_value: float | None = None
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
+    async def async_update(self) -> None:
+        """Fetch the latest usage window and publish it as statistics."""
+        end_at = datetime.now().astimezone()
+        start_at = end_at - LOOKBACK
 
-    @property
-    def icon(self):
-        """Icon to use in the frontend, if any."""
-        return self._icon
+        properties = await self._api.get_measurements(
+            self._account_number, start_at=start_at, end_at=end_at
+        )
 
-    @property
-    def state(self):
-        """Return the state of the device."""
-        return self._state
+        import_stats: list[StatisticData] = []
+        export_stats: list[StatisticData] = []
+        cost_stats: list[StatisticData] = []
+        import_sum = export_sum = cost_sum = 0.0
 
-    @property
-    def extra_state_attributes(self):
-        """Return the state attributes of the sensor."""
-        return self._state_attributes
+        for prop in properties:
+            edges = (prop.get("measurements") or {}).get("edges") or []
+            for edge in edges:
+                node = edge.get("node") or {}
+                value = node.get("value")
+                read_at = node.get("startAt") or node.get("readAt")
+                if value is None or read_at is None:
+                    continue
 
-    @property
-    def unique_id(self):
-        """Return the unique id."""
-        return self._unique_id
+                start = datetime.fromisoformat(read_at).replace(
+                    minute=0, second=0, microsecond=0
+                )
 
-    def update(self):
-        """Update the sensor data."""
-        _LOGGER.debug("Beginning usage update")
+                if _direction_of(node) == "export":
+                    export_sum += float(value)
+                    export_stats.append(StatisticData(start=start, sum=export_sum))
+                else:
+                    import_sum += float(value)
+                    import_stats.append(StatisticData(start=start, sum=import_sum))
 
-        solarStatistics = []
-        solarRunningSum = 0
+                cost = _reading_cost(node)
+                if cost is not None:
+                    cost_sum += cost
+                    cost_stats.append(StatisticData(start=start, sum=cost_sum))
 
-        dayStatistics = []
-        dayRunningSum = 0
+        if import_stats:
+            async_add_external_statistics(
+                self.hass,
+                StatisticMetaData(
+                    has_mean=False,
+                    has_sum=True,
+                    name=f"{SENSOR_NAME} (Import)",
+                    source=DOMAIN,
+                    statistic_id=f"{DOMAIN}:{self._account_number}_import",
+                    unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                ),
+                import_stats,
+            )
+            self._attr_native_value = import_sum
 
-        nightStatistics = []
-        nightRunningSum = 0
-
-        # Login to the website
-        self._api.token()
-
-        # Get the latest usage data
-        response = self._api.get_data()
-
-        # Process the CSV consumption file
-        csv_file = csv.reader(StringIO(response))
-
-        for row in csv_file:
-            # Accessing columns by index in each row
-            if len(row) < 2:  # Checking if there are at least two columns
-                _LOGGER.warning("Not enough columns in this row")
-                break
-
-            if row[0] == "HDR":
-                _LOGGER.debug("HDR line arrived")
-                continue
-            elif row[0] == "DET":
-                _LOGGER.debug("DET line arrived")
-
-            # Row definitions from EIEP document 13A (https://www.ea.govt.nz/documents/182/EIEP_13A_Electricity_conveyed_information_for_consumers.pdf)
-            energy_flow_direction = row[6]
-
-            # Skip any estimated reads
-            read_status = row[11]
-            if read_status != "RD":
-                _LOGGER.debug("HDR line skipped as its estimated")
-                continue
-
-            # Assuming row[9] contains the date in the format 'dd/mm/YYYY HH:MM:SS'
-            read_period_start_date_time = row[9]
-
-            # Assuming tz is your timezone (e.g., pytz.timezone('Your/Timezone'))
-            tz = timezone("Pacific/Auckland")
-
-            # Parse the date string into a datetime object
-            start_date = datetime.strptime(
-                read_period_start_date_time, "%d/%m/%Y %H:%M:%S"
+        if export_stats:
+            async_add_external_statistics(
+                self.hass,
+                StatisticMetaData(
+                    has_mean=False,
+                    has_sum=True,
+                    name=f"{SENSOR_NAME} (Export)",
+                    source=DOMAIN,
+                    statistic_id=f"{DOMAIN}:{self._account_number}_export",
+                    unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                ),
+                export_stats,
             )
 
-            # Exclude any readings that are at the 59th minute (summarised daily totals)
-            if start_date.minute == 59:
-                continue
-
-            # Localize the datetime object
-            start_date = tz.localize(start_date)
-
-            # Round down to the nearest hour as HA can only handle hourly
-            rounded_date = start_date.replace(minute=0, second=0, microsecond=0)
-
-            # Only calculate the energy after all checks are complete
-            unit_quantity_active_energy_volume = row[12]
-
-            # Process solar export channels
-            if energy_flow_direction == "I":
-                solarRunningSum = solarRunningSum + float(
-                    unit_quantity_active_energy_volume
-                )
-                solarStatistics.append(
-                    StatisticData(start=rounded_date, sum=solarRunningSum)
-                )
-
-            # Process regular channels
-            else:
-                # Night rate channel
-                if (
-                    start_date.hour >= 21 or
-                    start_date.hour <= 6
-                ):
-                    nightRunningSum = nightRunningSum + float(
-                        unit_quantity_active_energy_volume
-                    )
-                    nightStatistics.append(
-                        StatisticData(start=rounded_date, sum=nightRunningSum)
-                    )
-
-                # Day rate channel
-                else:
-                    dayRunningSum = dayRunningSum + float(
-                        unit_quantity_active_energy_volume
-                    )
-                    dayStatistics.append(
-                        StatisticData(start=rounded_date, sum=dayRunningSum)
-                    )
-
-        solarMetadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=True,
-            name=f"{SENSOR_NAME} (Solar Export)",
-            source=DOMAIN,
-            statistic_id=f"{DOMAIN}:return_to_grid",
-            unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        )
-        async_add_external_statistics(self.hass, solarMetadata, solarStatistics)
-
-        dayMetadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=True,
-            name=f"{SENSOR_NAME} (Day)",
-            source=DOMAIN,
-            statistic_id=f"{DOMAIN}:consumption_day",
-            unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        )
-        async_add_external_statistics(self.hass, dayMetadata, dayStatistics)
-
-        nightMetadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=True,
-            name=f"{SENSOR_NAME} (Night)",
-            source=DOMAIN,
-            statistic_id=f"{DOMAIN}:consumption_night",
-            unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        )
-        async_add_external_statistics(self.hass, nightMetadata, nightStatistics)
+        if cost_stats:
+            async_add_external_statistics(
+                self.hass,
+                StatisticMetaData(
+                    has_mean=False,
+                    has_sum=True,
+                    name=f"{SENSOR_NAME} (Cost)",
+                    source=DOMAIN,
+                    statistic_id=f"{DOMAIN}:{self._account_number}_cost",
+                    unit_of_measurement="NZD",
+                ),
+                cost_stats,
+            )

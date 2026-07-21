@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Meridian Energy",
+        "description": "Enter the email address on your Meridian account. We'll send you a one-time login code.",
+        "data": {
+          "email": "Email"
+        }
+      },
+      "otp": {
+        "title": "Enter the code we emailed you",
+        "description": "A one-time code was sent to {email}.",
+        "data": {
+          "otp": "Login code"
+        }
+      }
+    },
+    "error": {
+      "invalid_email": "Could not send a login code to that email address.",
+      "invalid_otp": "That code was incorrect or has expired."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "no_accounts": "No Meridian accounts were found for this login."
+    }
+  }
+}
