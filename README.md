@@ -44,7 +44,8 @@ under **Developer tools → Statistics** (source `meridian_energy`).
 ## Behaviour
 
 - Polls about every **3 hours**
-- Each poll re-publishes the last **10 days**; the recorder de-dupes by statistic id + start
+- Each poll fetches the last **30 days**; new hours are appended via persisted
+  statistic cursors (already-published hours are not rewritten)
 - Estimated half-hours (`ESTIMATE`) are included
 - Standing daily charge is **not** included in the cost statistic
 - First account on the login is used (multi-account picker not implemented yet)
