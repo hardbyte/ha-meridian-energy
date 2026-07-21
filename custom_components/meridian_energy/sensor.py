@@ -6,6 +6,11 @@ import logging
 
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
 from homeassistant.components.recorder.statistics import async_add_external_statistics
+
+try:
+    from homeassistant.components.recorder.models import StatisticMeanType
+except ImportError:  # pragma: no cover - older HA
+    StatisticMeanType = None  # type: ignore[misc, assignment]
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -82,43 +87,43 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
     export_stats = _stats("export")
     cost_stats = _stats("cost")
 
+    def _meta(name: str, statistic_id: str, unit: str) -> StatisticMetaData:
+        kwargs: dict = {
+            "has_mean": False,
+            "has_sum": True,
+            "name": name,
+            "source": DOMAIN,
+            "statistic_id": statistic_id,
+            "unit_of_measurement": unit,
+        }
+        if StatisticMeanType is not None:
+            kwargs["mean_type"] = StatisticMeanType.NONE
+        return StatisticMetaData(**kwargs)
+
     if import_stats:
         async_add_external_statistics(
             hass,
-            StatisticMetaData(
-                has_mean=False,
-                has_sum=True,
-                name=f"{SENSOR_NAME} (Import)",
-                source=DOMAIN,
-                statistic_id=f"{DOMAIN}:{slug}_import",
-                unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+            _meta(
+                f"{SENSOR_NAME} (Import)",
+                f"{DOMAIN}:{slug}_import",
+                UnitOfEnergy.KILO_WATT_HOUR,
             ),
             import_stats,
         )
     if export_stats:
         async_add_external_statistics(
             hass,
-            StatisticMetaData(
-                has_mean=False,
-                has_sum=True,
-                name=f"{SENSOR_NAME} (Export)",
-                source=DOMAIN,
-                statistic_id=f"{DOMAIN}:{slug}_export",
-                unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+            _meta(
+                f"{SENSOR_NAME} (Export)",
+                f"{DOMAIN}:{slug}_export",
+                UnitOfEnergy.KILO_WATT_HOUR,
             ),
             export_stats,
         )
     if cost_stats:
         async_add_external_statistics(
             hass,
-            StatisticMetaData(
-                has_mean=False,
-                has_sum=True,
-                name=f"{SENSOR_NAME} (Cost)",
-                source=DOMAIN,
-                statistic_id=f"{DOMAIN}:{slug}_cost",
-                unit_of_measurement="NZD",
-            ),
+            _meta(f"{SENSOR_NAME} (Cost)", f"{DOMAIN}:{slug}_cost", "NZD"),
             cost_stats,
         )
 
