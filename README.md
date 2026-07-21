@@ -35,8 +35,9 @@ Not affiliated with or endorsed by Meridian Energy.
 | Return to grid | `meridian_energy:<account>_export` |
 | Grid cost | `meridian_energy:<account>_cost` |
 
-`<account>` is your Meridian account number (shown on the device title after setup).
-Find the exact IDs under **Developer tools → Statistics** (source `meridian_energy`).
+`<account>` is the Meridian account number lowercased with non-alphanumerics
+turned into underscores (e.g. `A-1B9AC44D` → `a_1b9ac44d`). Find the exact IDs
+under **Developer tools → Statistics** (source `meridian_energy`).
 
 ## Behaviour
 

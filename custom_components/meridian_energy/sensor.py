@@ -25,6 +25,21 @@ from .coordinator import MeridianCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
+def _statistic_slug(account_number: str) -> str:
+    """Return a HA-valid external statistic object id for an account.
+
+    External statistic ids must match ``domain:object_id`` where object_id is
+    lowercase ``[a-z0-9_]+`` only — Meridian account numbers like ``A-1B9AC44D``
+    need normalising.
+    """
+    slug = "".join(
+        ch.lower() if ch.isalnum() else "_" for ch in account_number
+    ).strip("_")
+    while "__" in slug:
+        slug = slug.replace("__", "_")
+    return slug or "account"
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: MeridianConfigEntry,
@@ -54,7 +69,7 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
     summary = coordinator.data
     if summary is None:
         return
-    account = coordinator.account_number
+    slug = _statistic_slug(coordinator.account_number)
 
     def _stats(kind: str) -> list[StatisticData]:
         return [
@@ -75,7 +90,7 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
                 has_sum=True,
                 name=f"{SENSOR_NAME} (Import)",
                 source=DOMAIN,
-                statistic_id=f"{DOMAIN}:{account}_import",
+                statistic_id=f"{DOMAIN}:{slug}_import",
                 unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
             ),
             import_stats,
@@ -88,7 +103,7 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
                 has_sum=True,
                 name=f"{SENSOR_NAME} (Export)",
                 source=DOMAIN,
-                statistic_id=f"{DOMAIN}:{account}_export",
+                statistic_id=f"{DOMAIN}:{slug}_export",
                 unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
             ),
             export_stats,
@@ -101,7 +116,7 @@ def _publish_statistics(hass: HomeAssistant, coordinator: MeridianCoordinator) -
                 has_sum=True,
                 name=f"{SENSOR_NAME} (Cost)",
                 source=DOMAIN,
-                statistic_id=f"{DOMAIN}:{account}_cost",
+                statistic_id=f"{DOMAIN}:{slug}_cost",
                 unit_of_measurement="NZD",
             ),
             cost_stats,
