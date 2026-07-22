@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Meridian Energy">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#134E4A"/>
+      <stop offset="100%" stop-color="#042F2E"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="220" y1="110" x2="300" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ECFDF5"/>
+      <stop offset="100%" stop-color="#5EEAD4"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="160" y1="140" x2="280" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#bg)"/>
+  <rect x="48" y="48" width="416" height="416" rx="96" fill="none" stroke="#2DD4BF" stroke-opacity="0.22" stroke-width="3"/>
+
+  <circle cx="210" cy="198" r="58" fill="url(#sun)" opacity="0.95"/>
+  <g stroke="#FBBF24" stroke-width="10" stroke-linecap="round" opacity="0.9">
+    <path d="M210 112 V128"/>
+    <path d="M210 268 V284"/>
+    <path d="M124 198 H140"/>
+    <path d="M280 198 H296"/>
+    <path d="M148 136 L160 148"/>
+    <path d="M260 248 L272 260"/>
+    <path d="M148 260 L160 248"/>
+    <path d="M260 148 L272 136"/>
+  </g>
+
+  <path
+    fill="url(#bolt)"
+    d="M292 118
+       L196 262
+       H250
+       L214 394
+       L336 228
+       H278
+       Z"
+  />
+
+  <g stroke="#5EEAD4" stroke-opacity="0.45" stroke-width="8" stroke-linecap="round">
+    <path d="M150 392 H362"/>
+    <path d="M178 392 V418"/>
+    <path d="M256 392 V426"/>
+    <path d="M334 392 V418"/>
+  </g>
+</svg>
